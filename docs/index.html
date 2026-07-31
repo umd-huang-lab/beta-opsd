@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>β-OPSD: Deriving with Policy Optimization, Training with Self-Distillation</title>
+
+  <!-- Open Graph Metadata -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="β-OPSD" />
+  <meta property="og:url" content="https://arxiv.org/abs/2607.28582" />
+  <meta name="description"
+    content="β-OPSD: Deriving with Policy Optimization, Training with Self-Distillation" />
+  <link rel="canonical" href="https://arxiv.org/abs/2607.28582" />
+
+  <!-- Fonts & Icon Sets -->
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+
+  <!-- Bulma CSS Framework -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+
+  <style>
+    :root {
+      --navy: #173b57;
+      --blue: #3f79a6;
+      --blue-dark: #285f89;
+      --blue-soft: #edf6fc;
+      --blue-soft-2: #f5faff;
+      --blue-border: #cfe1ef;
+      --text: #4a5d6c;
+      --muted: #6e8495;
+      --green: #238457;
+    }
+
+    /* Global Overrides */
+    body {
+      font-family: 'Noto Sans', sans-serif;
+      color: var(--text);
+      background-color: #ffffff;
+      font-size: 1.05rem;
+      line-height: 1.625;
+    }
+
+    a {
+      color: var(--blue);
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--navy);
+    }
+
+    /* Hero Header Styling */
+    .hero {
+      background: #ffffff;
+      padding: 4rem 0 2rem 0;
+    }
+
+    .publication-title {
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.35rem, 5vw, 3.45rem) !important;
+      line-height: 1.13;
+      letter-spacing: -0.035em;
+      color: var(--navy);
+      text-align: center;
+      margin-bottom: 1.5rem !important;
+    }
+
+    .publication-title .beta-accent {
+      color: var(--blue);
+    }
+
+    .publication-authors {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.2rem;
+      color: var(--text);
+      text-align: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .publication-authors a {
+      color: var(--blue);
+    }
+
+    .publication-authors a:hover {
+      text-decoration: underline;
+    }
+
+    .author-note {
+      margin: -0.15rem 0 0.8rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    .publication-venue {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--blue-dark);
+      text-align: center;
+      margin-bottom: 2rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .publication-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .link-block a.button,
+    .link-block span.button {
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 0.6rem 1.2rem;
+      height: auto;
+      transition: all 0.2s ease;
+    }
+
+    .link-block a.button {
+      background-color: var(--navy);
+      color: #ffffff;
+    }
+
+    .link-block a.button:hover {
+      background-color: var(--blue) !important;
+      color: #ffffff !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(23, 59, 87, 0.14);
+    }
+
+    .link-block span.button {
+      border: 1px dashed var(--blue-border);
+      color: var(--muted);
+      background: #f8fbfd;
+      cursor: default;
+    }
+
+    /* Section Headings */
+    h2.title.section-title {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--navy);
+      margin-bottom: 2rem !important;
+    }
+
+    /* TL;DR Alert and Abstract Block */
+    .tldr-notification {
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-left: 4px solid var(--blue);
+      border-radius: 4px 8px 8px 4px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--navy);
+    }
+
+    .abstract-content {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      text-align: justify;
+      color: var(--text);
+    }
+
+    /* Stats Layout */
+    .stat-box {
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-radius: 12px;
+      padding: 24px 16px;
+      height: 100%;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .stat-box:hover {
+      background-color: #ffffff;
+      box-shadow: 0 8px 24px rgba(23, 59, 87, 0.06);
+      border-color: #aac9df;
+      transform: translateY(-2px);
+    }
+
+    .stat-num {
+      font-family: 'Castoro', serif;
+      font-size: 2.3rem;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--blue-dark);
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 0.92rem;
+      color: #586e7f;
+      line-height: 1.4;
+    }
+
+    /* Contributions Cards */
+    .contribution-card {
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-radius: 12px;
+      padding: 24px;
+      height: 100%;
+      transition: all 0.2s ease;
+    }
+
+    .contribution-card:hover {
+      box-shadow: 0 8px 24px rgba(23, 59, 87, 0.07);
+      border-color: #aac9df;
+      transform: translateY(-2px);
+    }
+
+    .contribution-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #e4f1fa;
+      color: var(--blue-dark);
+      font-family: 'Castoro', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .contribution-title {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+      line-height: 1.35;
+    }
+
+    .contribution-text {
+      font-size: 0.95rem;
+      color: #586e7f;
+      line-height: 1.55;
+    }
+
+    /* Elegant Figure Cards */
+    .figure-card {
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 1.5rem;
+      box-shadow: 0 4px 16px rgba(23, 59, 87, 0.025);
+    }
+
+    .figure-card img {
+      width: 100%;
+      display: block;
+      background-color: #ffffff;
+    }
+
+    .figure-caption {
+      font-size: 0.95rem;
+      color: #586e7f;
+      padding: 18px 24px;
+      border-top: 1px solid var(--blue-border);
+      line-height: 1.6;
+      text-align: justify;
+    }
+
+    .figure-caption strong {
+      color: var(--navy);
+    }
+
+    /* Takeaway Cards */
+    .takeaways-container {
+      margin-top: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .takeaway-item {
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-radius: 10px;
+      padding: 18px 24px;
+    }
+
+    .takeaway-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--blue-dark);
+      background-color: #e4f1fa;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+
+    .takeaway-text {
+      font-size: 0.98rem;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    /* Academic Results Table */
+    .academic-table-container {
+      margin-top: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .academic-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .academic-table th,
+    .academic-table td {
+      padding: 10px 14px;
+      border: none !important;
+    }
+
+    .academic-table thead th {
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 700;
+      color: var(--navy);
+      border-top: 2px solid var(--navy) !important;
+      border-bottom: 1.5px solid var(--navy) !important;
+      background-color: transparent !important;
+    }
+
+    .academic-table tbody tr td {
+      border-bottom: 1px solid #e5eef4 !important;
+      vertical-align: middle;
+    }
+
+    .academic-table tbody tr:last-child td {
+      border-bottom: 2px solid var(--navy) !important;
+    }
+
+    .academic-table .ours-val {
+      color: var(--blue-dark);
+      font-weight: 700;
+    }
+
+    .academic-table .gain-val {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .ours-row {
+      background-color: var(--blue-soft);
+    }
+
+    .model-group td {
+      padding-top: 16px;
+      padding-bottom: 7px;
+      border-bottom: 0 !important;
+      color: var(--navy);
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 700;
+    }
+
+    .loss-val {
+      color: #b66038;
+      font-weight: 700;
+    }
+
+    .table-note {
+      margin-top: 0.8rem;
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.55;
+    }
+
+    .mini-table-title {
+      margin-bottom: 0.75rem;
+      color: var(--navy);
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    /* BibTeX Citation Box */
+    .bibtex-box {
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      position: relative;
+      margin-top: 1rem;
+      overflow-x: auto;
+    }
+
+    .bibtex-box pre {
+      margin: 0;
+      background-color: transparent;
+      padding: 0;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--navy);
+    }
+
+    .copy-button {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background-color: #ffffff;
+      border: 1px solid var(--blue-border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(23, 59, 87, 0.03);
+    }
+
+    .copy-button:hover {
+      border-color: var(--blue);
+      color: var(--blue-dark);
+      background-color: var(--blue-soft);
+    }
+
+    /* Footer Styling */
+    .footer {
+      background-color: #ffffff;
+      border-top: 1px solid var(--blue-border);
+      padding: 3rem 1.5rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: center;
+    }
+
+    .footer-sub {
+      font-size: 0.85rem;
+      color: #8497a5;
+      margin-top: 8px;
+    }
+
+    /* Mobile Spacing Fixes */
+    @media (max-width: 768px) {
+      .hero {
+        padding-top: 2.5rem;
+      }
+
+      .link-block a.button,
+      .link-block span.button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Hero Header Section -->
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+
+            <div class="publication-venue">arXiv:2607.28582 · 2026</div>
+
+            <h1 class="title is-1 publication-title"><span class="beta-accent">β-OPSD:</span> Deriving with Policy
+              Optimization, Training with Self-Distillation</h1>
+
+            <div class="publication-authors">
+              <span class="author-block">Jiawei Xu*,</span>
+              <span class="author-block">Minghui Liu*,</span>
+              <span class="author-block">Juzheng Zhang,</span>
+              <span class="author-block">Tom Goldstein,</span>
+              <span class="author-block">Furong Huang</span>
+            </div>
+
+            <p class="author-note">* Equal contributions and joint project leadership.</p>
+
+            <p class="publication-authors" style="font-size: 1.1rem; color: #60788d;">
+              University of Maryland, College Park
+            </p>
+
+            <div class="publication-links">
+              <span class="link-block">
+                <a target="_blank" href="https://arxiv.org/pdf/2607.28582"
+                  class="external-link button is-normal is-rounded">
+                  <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                  <span>PDF</span>
+                </a>
+              </span>
+
+              <span class="link-block">
+                <a target="_blank" href="https://arxiv.org/abs/2607.28582"
+                  class="external-link button is-normal is-rounded">
+                  <span class="icon"><i class="ai ai-arxiv"></i></span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+
+              <span class="link-block">
+                <span class="button is-normal is-rounded">
+                  <span class="icon"><i class="fab fa-github"></i></span>
+                  <span>Code Coming Soon</span>
+                </span>
+              </span>
+
+              <span class="link-block">
+                <a href="#bibtex" class="external-link button is-normal is-rounded">
+                  <span class="icon"><i class="fas fa-book"></i></span>
+                  <span>BibTeX</span>
+                </a>
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statistics Row Section -->
+  <section class="section pt-0">
+    <div class="container is-max-desktop">
+      <div class="columns is-multiline is-centered">
+
+        <div class="column is-3">
+          <div class="stat-box">
+            <div class="stat-num">β = 1</div>
+            <div class="stat-label">Vanilla OPSD is one member of the broader β-OPSD family</div>
+          </div>
+        </div>
+
+        <div class="column is-3">
+          <div class="stat-box">
+            <div class="stat-num">Closed form</div>
+            <div class="stat-label">Optimal policy geometrically interpolates reference and teacher</div>
+          </div>
+        </div>
+
+        <div class="column is-3">
+          <div class="stat-box">
+            <div class="stat-num">+5.74</div>
+            <div class="stat-label">Average-point gain over vanilla OPSD on Qwen3-1.7B</div>
+          </div>
+        </div>
+
+        <div class="column is-3">
+          <div class="stat-box">
+            <div class="stat-num">3</div>
+            <div class="stat-label">Mathematical reasoning benchmarks improved at 1.7B scale</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Abstract Section -->
+  <section class="section pt-2">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">Abstract</h2>
+
+      <div class="tldr-notification">
+        <strong>TL;DR.</strong> Vanilla OPSD implicitly fixes β=1. β-OPSD makes β controllable, derives the corresponding
+        optimal target, and approximates that RL solution using efficient self-distillation.
+      </div>
+
+      <div class="content abstract-content">
+        <p>On-policy self-distillation (OPSD) is a promising approach to improve reasoning language models, but it
+          remains brittle in practice: making it work reliably often requires substantial engineering effort. We
+          identify a structural source of this difficulty: vanilla OPSD is precisely the β=1 member of a broader
+          policy-optimization family, where β weights the KL penalty anchoring the student to a reference policy. This
+          equivalence turns β from an implicit value fixed at one into a controllable regularization parameter,
+          yielding a more general formulation that trades off proximity to a reference policy against privileged
+          teacher guidance. We introduce β-OPSD and derive its optimal policy as a geometric interpolation between the
+          reference policy and the privileged teacher. Directly optimizing this objective with reinforcement learning,
+          however, would be costly and high-variance. Rather than optimize the RL objective directly, we turn its
+          closed-form solution into a distillation target. Each value of β selects a target along the
+          reference-to-teacher path, which we implement efficiently by mixing their token-level logits. In this way,
+          inexpensive distillation approximates the solution of expensive policy optimization. Return-to-go credit
+          assignment further aligns token updates with the sequence-level objective while retaining the simplicity of
+          OPSD. Experiments on mathematical reasoning benchmarks show that β-OPSD consistently outperforms vanilla
+          OPSD, improving optimization stability and downstream reasoning performance. Our results provide a principled
+          route from self-distillation to policy optimization and back&mdash;without sacrificing the efficiency that
+          makes OPSD practical.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contributions Section -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">Contributions</h2>
+
+      <div class="columns is-multiline">
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">01</div>
+            <h3 class="contribution-title">A policy-optimization view of OPSD</h3>
+            <p class="contribution-text">We show that vanilla on-policy self-distillation is exactly the β=1 instance
+              of KL-regularized policy optimization.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">02</div>
+            <h3 class="contribution-title">A controllable β-OPSD family</h3>
+            <p class="contribution-text">β explicitly trades off proximity to the reference policy against privileged
+              teacher guidance.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">03</div>
+            <h3 class="contribution-title">Closed-form optimal targets</h3>
+            <p class="contribution-text">The optimal policy is a geometric interpolation between the reference policy
+              and privileged teacher.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">04</div>
+            <h3 class="contribution-title">A practical distillation algorithm</h3>
+            <p class="contribution-text">Scheduled logit interpolation and return-to-go credit approximate the
+              RL-derived solution while retaining OPSD's efficiency.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Method Overview Section -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">Method Overview</h2>
+      <div class="content has-text-centered mb-5">
+        <p class="is-size-5 has-text-grey">Derive the target with policy optimization, then train it with
+          self-distillation.</p>
+      </div>
+
+      <div class="figure-card">
+        <img src="assets/beta-opsd-main.png" alt="β-OPSD method overview" />
+        <div class="figure-caption">
+          <strong>Overview of β-OPSD.</strong> The policy-optimization view makes β explicit and yields a closed-form
+          target between the reference policy and privileged teacher. The practical algorithm distills this RL-derived
+          target through scheduled token-level logit interpolation and return-to-go credit assignment.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Practical Method Section -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">Practical β-OPSD</h2>
+      <div class="content has-text-centered mb-5">
+        <p class="is-size-5 has-text-grey">The implementation changes the target and the credit assignment while
+          preserving the structure of on-policy distillation.</p>
+      </div>
+
+      <div class="columns is-multiline">
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">A</div>
+            <h3 class="contribution-title">Schedule the teacher weight</h3>
+            <p class="contribution-text">The practical schedule controls
+              <em>w<sub>k</sub> = 1/β<sub>k</sub></em> in [0, 1], equivalently β<sub>k</sub> ≥ 1. The default
+              200-step schedule increases the teacher weight from 0.5 to 0.8, moving smoothly from a conservative
+              target toward stronger teacher guidance.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">B</div>
+            <h3 class="contribution-title">Interpolate token-level logits</h3>
+            <p class="contribution-text">At each sampled prefix, β-OPSD mixes logits from a stop-gradient copy of the
+              current student and a fixed privileged teacher. This is a tractable local approximation to the
+              trajectory-level geometric interpolant.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">C</div>
+            <h3 class="contribution-title">Sample on-policy trajectories</h3>
+            <p class="contribution-text">Responses are sampled from the current student. The student sees only the
+              problem, while the teacher can additionally condition on the ground-truth solution as privileged
+              training context.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="contribution-card">
+            <div class="contribution-num">D</div>
+            <h3 class="contribution-title">Assign return-to-go credit</h3>
+            <p class="contribution-text">Discounted return-to-go propagates future student-target mismatch to earlier
+              tokens. The experiments use γ = 0.99; interpolant logits and return weights are detached, leaving the
+              student log-probability as the gradient path.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Results Section -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">Main Results</h2>
+      <div class="content has-text-centered mb-5">
+        <p class="is-size-5 has-text-grey">Avg@12 performance at the 100-step checkpoint of the default 200-step
+          schedule</p>
+      </div>
+
+      <div class="academic-table-container">
+        <table class="academic-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>AIME 2024</th>
+              <th>AIME 2025</th>
+              <th>HMMT 2025</th>
+              <th>Average</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="model-group">
+              <td colspan="5">Qwen3-8B</td>
+            </tr>
+            <tr>
+              <td>Base model</td>
+              <td>73.06</td>
+              <td>67.78</td>
+              <td>29.72</td>
+              <td>56.85</td>
+            </tr>
+            <tr>
+              <td>Vanilla OPSD</td>
+              <td>75.83</td>
+              <td>66.67</td>
+              <td>33.06</td>
+              <td>58.52</td>
+            </tr>
+            <tr>
+              <td>SFT</td>
+              <td>72.78</td>
+              <td>64.72</td>
+              <td>30.83</td>
+              <td>56.11</td>
+            </tr>
+            <tr>
+              <td>GRPO</td>
+              <td>75.83</td>
+              <td>68.61</td>
+              <td>31.11</td>
+              <td>58.52</td>
+            </tr>
+            <tr class="ours-row">
+              <td class="ours-val">β-OPSD (ours)</td>
+              <td class="ours-val">78.33 <span class="gain-val">(+2.50)</span></td>
+              <td class="ours-val">70.28 <span class="gain-val">(+3.61)</span></td>
+              <td class="ours-val">31.94 <span class="loss-val">(-1.12)</span></td>
+              <td class="ours-val">60.18 <span class="gain-val">(+1.66)</span></td>
+            </tr>
+
+            <tr class="model-group">
+              <td colspan="5">Qwen3-4B</td>
+            </tr>
+            <tr>
+              <td>Base model</td>
+              <td>77.78</td>
+              <td>64.17</td>
+              <td>29.44</td>
+              <td>57.13</td>
+            </tr>
+            <tr>
+              <td>Vanilla OPSD</td>
+              <td>75.00</td>
+              <td>65.00</td>
+              <td>28.33</td>
+              <td>56.11</td>
+            </tr>
+            <tr>
+              <td>SFT</td>
+              <td>23.61</td>
+              <td>19.72</td>
+              <td>10.56</td>
+              <td>17.96</td>
+            </tr>
+            <tr>
+              <td>GRPO</td>
+              <td>76.39</td>
+              <td>64.17</td>
+              <td>30.28</td>
+              <td>56.95</td>
+            </tr>
+            <tr class="ours-row">
+              <td class="ours-val">β-OPSD (ours)</td>
+              <td class="ours-val">73.89 <span class="loss-val">(-1.11)</span></td>
+              <td class="ours-val">69.17 <span class="gain-val">(+4.17)</span></td>
+              <td class="ours-val">30.56 <span class="gain-val">(+2.23)</span></td>
+              <td class="ours-val">57.87 <span class="gain-val">(+1.76)</span></td>
+            </tr>
+
+            <tr class="model-group">
+              <td colspan="5">Qwen3-1.7B</td>
+            </tr>
+            <tr>
+              <td>Base model</td>
+              <td>50.00</td>
+              <td>37.22</td>
+              <td>14.44</td>
+              <td>33.89</td>
+            </tr>
+            <tr>
+              <td>Vanilla OPSD</td>
+              <td>44.17</td>
+              <td>35.56</td>
+              <td>13.33</td>
+              <td>31.02</td>
+            </tr>
+            <tr>
+              <td>SFT</td>
+              <td>37.50</td>
+              <td>29.17</td>
+              <td>12.22</td>
+              <td>26.30</td>
+            </tr>
+            <tr>
+              <td>GRPO</td>
+              <td>48.33</td>
+              <td>38.61</td>
+              <td>15.00</td>
+              <td>33.98</td>
+            </tr>
+            <tr class="ours-row">
+              <td class="ours-val">β-OPSD (ours)</td>
+              <td class="ours-val">53.33 <span class="gain-val">(+9.16)</span></td>
+              <td class="ours-val">40.83 <span class="gain-val">(+5.27)</span></td>
+              <td class="ours-val">16.11 <span class="gain-val">(+2.78)</span></td>
+              <td class="ours-val">36.76 <span class="gain-val">(+5.74)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Gains in parentheses are absolute differences relative to Vanilla OPSD at the same model
+        scale. β-OPSD achieves the strongest average result at all three scales, although individual benchmark results
+        can decrease at larger scales.</p>
+
+      <div class="takeaways-container">
+        <div class="takeaway-item">
+          <span class="takeaway-tag">All Model Scales</span>
+          <p class="takeaway-text"><strong>Average performance improves over Vanilla OPSD by 1.66 points at 8B, 1.76
+              points at 4B, and 5.74 points at 1.7B.</strong></p>
+        </div>
+
+        <div class="takeaway-item">
+          <span class="takeaway-tag">Largest Gain</span>
+          <p class="takeaway-text"><strong>On Qwen3-1.7B, β-OPSD improves AIME 2024 by 9.16 points and improves all
+              three benchmarks.</strong></p>
+        </div>
+
+        <div class="takeaway-item">
+          <span class="takeaway-tag">Important Nuance</span>
+          <p class="takeaway-text"><strong>At larger scales, β-OPSD has the strongest overall average but does not win
+              every individual benchmark.</strong></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ablation Section -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">What Drives the Improvement?</h2>
+      <div class="content has-text-centered mb-5">
+        <p class="is-size-5 has-text-grey">Controlled ablations isolate the contribution of the interpolant target and
+          return-to-go credit assignment.</p>
+      </div>
+
+      <div class="columns is-variable is-5">
+        <div class="column is-6">
+          <h3 class="mini-table-title">Effect of the Target</h3>
+          <div class="academic-table-container">
+            <table class="academic-table">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>A24</th>
+                  <th>A25</th>
+                  <th>H25</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Teacher + RTG</td>
+                  <td>47.30</td>
+                  <td>35.53</td>
+                  <td>14.44</td>
+                </tr>
+                <tr class="ours-row">
+                  <td class="ours-val">β-OPSD target</td>
+                  <td class="ours-val">53.33</td>
+                  <td class="ours-val">40.83</td>
+                  <td class="ours-val">16.11</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">With identical return-to-go credit, the interpolant improves AIME 2024, AIME 2025,
+            and HMMT 2025 by 6.03, 5.30, and 1.67 points.</p>
+        </div>
+
+        <div class="column is-6">
+          <h3 class="mini-table-title">Effect of Credit Assignment</h3>
+          <div class="academic-table-container">
+            <table class="academic-table">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>A24</th>
+                  <th>A25</th>
+                  <th>H25</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Local token gradient</td>
+                  <td>49.44</td>
+                  <td>32.78</td>
+                  <td>13.06</td>
+                </tr>
+                <tr class="ours-row">
+                  <td class="ours-val">Return-to-go</td>
+                  <td class="ours-val">50.56</td>
+                  <td class="ours-val">38.33</td>
+                  <td class="ours-val">16.67</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">With the same interpolant target, return-to-go improves the benchmarks by 1.12, 5.55,
+            and 3.61 points.</p>
+        </div>
+      </div>
+
+      <div class="takeaways-container">
+        <div class="takeaway-item">
+          <span class="takeaway-tag">Reference Choice</span>
+          <p class="takeaway-text"><strong>A dynamic stop-gradient student endpoint paired with a fixed privileged
+              teacher performs best across all three benchmarks.</strong></p>
+        </div>
+
+        <div class="takeaway-item">
+          <span class="takeaway-tag">Schedule</span>
+          <p class="takeaway-text"><strong>The 0.5 → 0.8 teacher-weight schedule gives the strongest overall result
+              among the schedules tested, although other schedules can lead on individual benchmarks.</strong></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Citation Block Section -->
+  <section class="section" id="bibtex">
+    <div class="container is-max-desktop">
+      <h2 class="title section-title">Citation</h2>
+
+      <div class="bibtex-box">
+        <button class="copy-button" onclick="copyBibtex()">Copy BibTeX</button>
+        <pre><code id="bibtex-code">@misc{xu2026betaopsd,
+  title         = {{$\beta$-OPSD: Deriving with Policy Optimization, Training with Self-Distillation}},
+  author        = {Xu, Jiawei and Liu, Minghui and Zhang, Juzheng and Goldstein, Tom and Huang, Furong},
+  year          = {2026},
+  eprint        = {2607.28582},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2607.28582}
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      University of Maryland, College Park
+      <div class="footer-sub">β-OPSD · 2026</div>
+    </div>
+  </footer>
+
+  <script>
+    function copyBibtex() {
+      const raw = document.getElementById('bibtex-code').textContent;
+      navigator.clipboard.writeText(raw).then(() => {
+        const btn = document.querySelector('.copy-button');
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.backgroundColor = '#edf6fc';
+        btn.style.borderColor = '#3f79a6';
+        btn.style.color = '#285f89';
+        setTimeout(() => {
+          btn.textContent = old;
+          btn.style.backgroundColor = '';
+          btn.style.borderColor = '';
+          btn.style.color = '';
+        }, 2000);
+      }).catch(() => {
+        const btn = document.querySelector('.copy-button');
+        btn.textContent = 'Select text';
+      });
+    }
+  </script>
+</body>
+
+</html>
