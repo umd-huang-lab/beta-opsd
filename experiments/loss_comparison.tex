@@ -1,0 +1,149 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\title{Loss Function Comparison for Privileged Self-Distillation}
+\author{OPSD Project}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Setup}
+
+All runs use \textbf{Qwen3-1.7B} with LoRA ($r=64$, $\alpha=128$, all projection layers), trained for 200 steps on OpenThoughts-Math-30k. The teacher has access to privileged information (ground-truth solution in context); the student sees only the problem. The teacher branch is frozen via the fixed-teacher strategy: LoRA adapters update only the student forward pass, while the teacher uses the frozen base model weights.
+
+\noindent\textbf{Shared hyperparameters:}
+\begin{itemize}
+  \item Learning rate: $5\times10^{-6}$, max grad norm $0.1$
+  \item Batch: 4 per device $\times$ 4 GPUs $\times$ 2 gradient accumulation steps $= 32$ effective
+  \item Max completion length: 1024 tokens; temperature $\tau = 1.1$, top-$p = 0.95$, top-$k = 20$
+  \item On-policy generation via vLLM (colocate mode, 4$\times$L40S GPUs)
+\end{itemize}
+
+\section{Loss Functions}
+
+Let $q_\theta(y_t \mid y_{<t}, x)$ be the student and $p(y_t \mid y_{<t}, x, c)$ the frozen privileged teacher. All losses operate on sampled tokens only (no full vocabulary summation).
+
+\subsection{Token-KL / Reverse KL (revkl)}
+
+Per-token reverse KL used as a policy-gradient surrogate~\cite{thinkingmachines2025}:
+\begin{equation}
+  r_t = \log p(y_t \mid y_{<t}, x, c) - \log q_\theta(y_t \mid y_{<t}, x)
+\end{equation}
+\begin{equation}
+  \mathcal{L}_{\text{revkl}} = -\frac{1}{T}\sum_{t=1}^T \operatorname{sg}(r_t) \cdot \log q_\theta(y_t \mid y_{<t}, x)
+\end{equation}
+Credit assignment is purely local: each token is weighted by its own log-ratio with no information from the rest of the sequence.
+
+\subsection{Cumulative Sequence KL (cumseq)}
+
+Inspired by \citet{cumseq2025}, this adds long-range credit assignment via the suffix mean log-ratio:
+\begin{equation}
+  \tilde{R}_t = \frac{1}{T - t + 1}\sum_{s=t}^{T} r_s
+\end{equation}
+\begin{equation}
+  \mathcal{L}_{\text{cumseq}} = -\frac{1}{T}\sum_{t=1}^T \operatorname{sg}(\tilde{R}_t) \cdot \log q_\theta(y_t \mid y_{<t}, x)
+\end{equation}
+The suffix sum is divided by remaining valid token count at each position, bounding the weight to $[\min_t r_t,\, \max_t r_t]$ and preventing the $\mathcal{O}(T)$ magnitude blowup that arises from unnormalized suffix sums at long completion lengths.
+
+\subsection{MiniLLM-Style Loss (minillm)}
+
+The exact policy-gradient form derived by \citet{minillm2023} for minimizing $\mathrm{KL}(q_\theta \| p)$ at the sequence level:
+\begin{equation}
+  \nabla_\theta \mathcal{L}_{\mathrm{KL}} = -\mathbb{E}_{y \sim q_\theta}\left[\sum_{t=1}^T R_{t-1} \cdot \nabla_\theta \log q_\theta(y_t \mid y_{<t}, x)\right]
+\end{equation}
+where $R_{t-1} = \sum_{s \geq t} r_s$ is the return-to-go from position $t$ (inclusive). We apply the same suffix-mean normalization as cumseq for stability, then subtract the $-1$ baseline that appears in the MiniLLM gradient derivation:
+\begin{equation}
+  w_t = \operatorname{sg}(\tilde{R}_t) - 1
+\end{equation}
+\begin{equation}
+  \mathcal{L}_{\text{minillm}} = -\frac{1}{\sum_t \mathbf{1}_t}\sum_{t=1}^T w_t \cdot \log q_\theta(y_t \mid y_{<t}, x)
+\end{equation}
+The $-1$ term shifts the weight so that a flat suffix ($\tilde{R}_t = 1$) produces zero gradient, reducing variance relative to cumseq. The normalization is also global over tokens rather than per-sequence.
+
+\paragraph{Relationship between losses.}
+The gradient of $\mathcal{L}_{\text{cumseq}}$ is $\tilde{R}_t \cdot \nabla_\theta \log q_\theta(y_t)$, while that of $\mathcal{L}_{\text{minillm}}$ is $(\tilde{R}_t - 1) \cdot \nabla_\theta \log q_\theta(y_t)$. The difference is a constant additive term $\nabla_\theta \log q_\theta(y_t)$ — an entropy-like bonus present in cumseq but absent in minillm. The revkl gradient is $r_t \cdot \nabla_\theta \log q_\theta(y_t)$, i.e.\ cumseq without long-range credit assignment.
+
+\section{Evaluation}
+
+Evaluation uses vLLM with thinking mode enabled (\texttt{/think} appended to prompts, Qwen3 style). AIME problems use 32k max generation tokens; all other datasets use 16k. Accuracy is measured by \texttt{math\_verify} exact-match on $\backslash$\texttt{boxed\{\}} answers.
+
+\subsection{Greedy Accuracy (pass@1, thinking)}
+
+\begin{table}[h]
+\centering
+\caption{Greedy accuracy (\%) with thinking mode. AIME: 30 problems each. Others: 300 samples each. Pending entries marked with \textemdash.}
+\label{tab:greedy}
+\begin{tabular}{lcccccccc}
+\toprule
+\multirow{2}{*}{\textbf{Loss}} & \multicolumn{2}{c}{\textbf{AIME}} & \multirow{2}{*}{\textbf{AMC}} & \multirow{2}{*}{\textbf{GSM8K}} & \multirow{2}{*}{\textbf{MATH}} & \multirow{2}{*}{\textbf{Minerva}} & \multirow{2}{*}{\textbf{Olympiad}} & \multirow{2}{*}{\textbf{Other Avg}} \\
+\cmidrule(lr){2-3}
+ & \textbf{24} & \textbf{25} & & & & & & \\
+\midrule
+Base (Qwen3-1.7B) & 46.7 & 23.3 & 67.5 & 90.3 & 72.7 & 23.5 & 48.7 & 60.2 \\
+\midrule
+revkl             & 40.0 & 26.7 & \textbf{71.1} & 90.0 & 72.0 & 22.8 & \textbf{49.0} & 60.1 \\
+cumseq            & --- & --- & 63.9 & 89.0 & 72.0 & \textbf{23.9} & 48.3 & 59.4 \\
+minillm           & --- & --- & --- & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Pass@12 (sampling, thinking)}
+
+Sampling uses temperature $0.6$, top-$p = 0.95$, top-$k = 20$, $k=12$ candidates per problem.
+
+\begin{table}[h]
+\centering
+\caption{Pass@12 (\%) with thinking mode. All entries pending.}
+\label{tab:pass12}
+\begin{tabular}{lcccccccc}
+\toprule
+\multirow{2}{*}{\textbf{Loss}} & \multicolumn{2}{c}{\textbf{AIME}} & \multirow{2}{*}{\textbf{AMC}} & \multirow{2}{*}{\textbf{GSM8K}} & \multirow{2}{*}{\textbf{MATH}} & \multirow{2}{*}{\textbf{Minerva}} & \multirow{2}{*}{\textbf{Olympiad}} & \multirow{2}{*}{\textbf{Other Avg}} \\
+\cmidrule(lr){2-3}
+ & \textbf{24} & \textbf{25} & & & & & & \\
+\midrule
+Base (Qwen3-1.7B) & --- & --- & --- & --- & --- & --- & --- & --- \\
+revkl             & --- & --- & --- & --- & --- & --- & --- & --- \\
+cumseq            & --- & --- & --- & --- & --- & --- & --- & --- \\
+minillm           & --- & --- & --- & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Notes}
+
+\begin{itemize}
+  \item The cumseq run used a suffix-\emph{sum} (unnormalized) in its original implementation, causing $\mathcal{O}(T)$ loss magnitude growth and training divergence. The suffix-\emph{mean} normalization was applied as a fix prior to the run whose results appear above.
+  \item The minillm run completed training (200 steps, final loss $-0.03$, grad norm $0.42$); evaluation jobs are pending.
+  \item AIME results show high variance due to small test set size ($n=30$); differences of $\pm 1$ problem correspond to $\pm 3.3\%$.
+  \item numina\_eval omitted from Other Avg above as it was not included in the current evaluation sweep.
+\end{itemize}
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+
+\bibitem{minillm2023}
+Gu et al.\ (2023).
+\textit{MiniLLM: Knowledge Distillation of Large Language Models}.
+arXiv:2306.08543.
+
+\bibitem{cumseq2025}
+Anonymous (2025).
+\textit{Cumulative Sequence KL Distillation}.
+arXiv:2506.09477.
+
+\bibitem{thinkingmachines2025}
+Thinking Machines Lab (2025).
+\textit{On-Policy Reverse KL Distillation}.
+\url{https://thinkingmachines.ai}.
+
+\end{thebibliography}
+
+\end{document}

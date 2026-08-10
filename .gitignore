@@ -1,0 +1,28 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Training and evaluation artifacts
+wandb/
+outputs/
+runs/
+slurm_logs/
+slurm-*.out
+eval/logs/
+eval/results/
+analysis/results/
+data/
+cache/
+checkpoints/
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+
+# Local agent/editor state
+.claude/
+.codex
+.agents/
