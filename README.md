@@ -229,4 +229,16 @@ The following are intentionally ignored: `runs/`, `wandb/`, `slurm_logs/`, `cach
 
 ## Citation
 
-If you use this code, please cite the beta-OPSD paper. A BibTeX entry will be added here when the public citation metadata is finalized.
+If you use this code, please cite the beta-OPSD paper:
+
+```bibtex
+@misc{xu2026betaopsd,
+  title         = {{$\beta$-OPSD: Deriving with Policy Optimization, Training with Self-Distillation}},
+  author        = {Xu, Jiawei and Liu, Minghui and Zhang, Juzheng and Goldstein, Tom and Huang, Furong},
+  year          = {2026},
+  eprint        = {2607.28582},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2607.28582}
+}
+```
