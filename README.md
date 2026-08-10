@@ -4,7 +4,7 @@ Beta-OPSD is the code release for experiments around beta on-policy self-distill
 
 This repository is intentionally clean: it contains source code, launch configs, evaluation inputs, and documentation only. Training outputs, checkpoints, W&B state, Slurm logs, generated samples, caches, and large generated reference files are excluded by `.gitignore`.
 
-The paper PDF is included at [`docs/beta-opsd-paper.pdf`](docs/beta-opsd-paper.pdf).
+Paper: [arXiv:2607.28582](https://arxiv.org/abs/2607.28582). The PDF is included at [`docs/beta-opsd-paper.pdf`](docs/beta-opsd-paper.pdf).
 
 ## Installation
 
@@ -37,7 +37,6 @@ Key dependency versions are pinned in [`environment.yml`](environment.yml), incl
 ├── scripts/                    # Slurm and shell launchers
 ├── eval/                       # Math evaluation code and benchmark JSONL files
 ├── analysis/                   # Auxiliary analysis scripts
-├── experiments/                # Small paper experiment assets
 └── docs/                       # Paper PDF
 ```
 
@@ -45,6 +44,17 @@ The beta-OPSD files are the default place to start:
 
 - [`beta_opsd_train.py`](beta_opsd_train.py): CLI arguments, model/dataset setup, trainer construction.
 - [`beta_opsd_trainer.py`](beta_opsd_trainer.py): target interpolation, Tinker-style sampled-token loss, optional mixed sampling, and optional reward-to-go.
+
+The `scripts/` folder is limited to paper-relevant launchers and smoke tests:
+
+| Script family | Purpose |
+|---|---|
+| `beta_opsd_mix_target_qwen34b_h200.sbatch` | Main beta-OPSD mixed-target run. |
+| `beta_opsd_mixed_sampling*.sbatch` | Mixed-sampling proposal ablations and RTG variants. |
+| `beta_opsd_fixed_teacher_qwen34b_h200.sbatch`, `submit_opsd_*_localvllm.sbatch`, `run_opsd_*.sh` | Vanilla/fixed-teacher OPSD baselines. |
+| `run_sft.sh`, `run_grpo.sh`, `submit_qwen*_baseline.sbatch` | SFT and GRPO baselines at paper model scales. |
+| `smoke*.sbatch`, `smoke_test.sh` | Short sanity checks for the released methods. |
+| `serve_vllm.sh`, `run_with_local_vllm.sh`, `submit_vllm_server.sbatch` | vLLM helpers used by the OPSD launchers. |
 
 ## Core Method Switches
 
