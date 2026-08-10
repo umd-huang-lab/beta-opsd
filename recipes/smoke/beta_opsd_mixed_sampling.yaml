@@ -1,0 +1,38 @@
+method: beta_opsd_mixed_sampling_smoke
+run_name: beta_opsd_mixed_sampling_smoke
+entrypoint: beta_opsd_train.py
+accelerate_config: accelerate_smoke.yaml
+num_processes: 1
+main_process_port: 13101
+metadata:
+  smoke: true
+  note: Uses HF generation by default so a single GPU can validate the option path.
+args:
+  model_name_or_path: Qwen/Qwen3-1.7B
+  learning_rate: 5e-6
+  max_grad_norm: 0.1
+  per_device_train_batch_size: 1
+  gradient_checkpointing: true
+  gradient_accumulation_steps: 1
+  max_steps: 3
+  max_completion_length: 128
+  save_strategy: "no"
+  logging_steps: 1
+  attn_implementation: flash_attention_2
+  dtype: bfloat16
+  max_length: 4096
+  beta: 0
+  use_peft: true
+  lora_r: 64
+  lora_alpha: 128
+  lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  lmbda: 1
+  fixed_teacher: true
+  jsd_token_clip: 0.05
+  use_tinker_loss: true
+  use_mixed_sampling: true
+  mixed_sampling_teacher_alpha: 0.3
+  report_to: none

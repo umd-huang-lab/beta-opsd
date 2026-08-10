@@ -34,7 +34,8 @@ Key dependency versions are pinned in [`environment.yml`](environment.yml), incl
 ├── grpo_train.py               # GRPO baseline
 ├── accelerate.yaml             # Multi-GPU DeepSpeed/Accelerate config
 ├── accelerate_smoke.yaml       # Single-GPU smoke-test config
-├── scripts/                    # Slurm and shell launchers
+├── recipes/                    # Paper and smoke-test YAML launch recipes
+├── scripts/                    # Public training, Slurm, smoke, and vLLM helpers
 ├── eval/                       # Math evaluation code and benchmark JSONL files
 ├── analysis/                   # Auxiliary analysis scripts
 └── docs/                       # Paper PDF
@@ -45,16 +46,16 @@ The beta-OPSD files are the default place to start:
 - [`beta_opsd_train.py`](beta_opsd_train.py): CLI arguments, model/dataset setup, trainer construction.
 - [`beta_opsd_trainer.py`](beta_opsd_trainer.py): target interpolation, Tinker-style sampled-token loss, optional mixed sampling, and optional reward-to-go.
 
-The `scripts/` folder is limited to paper-relevant launchers and smoke tests:
+Public launch configuration is split into recipes and reusable scripts:
 
-| Script family | Purpose |
+| Path | Purpose |
 |---|---|
-| `beta_opsd_mix_target_qwen34b_h200.sbatch` | Main beta-OPSD mixed-target run. |
-| `beta_opsd_mixed_sampling*.sbatch` | Mixed-sampling proposal ablations and RTG variants. |
-| `beta_opsd_fixed_teacher_qwen34b_h200.sbatch`, `submit_opsd_*_localvllm.sbatch`, `run_opsd_*.sh` | Vanilla/fixed-teacher OPSD baselines. |
-| `run_sft.sh`, `run_grpo.sh`, `submit_qwen*_baseline.sbatch` | SFT and GRPO baselines at paper model scales. |
-| `smoke*.sbatch`, `smoke_test.sh` | Short sanity checks for the released methods. |
-| `serve_vllm.sh`, `run_with_local_vllm.sh`, `submit_vllm_server.sbatch` | vLLM helpers used by the OPSD launchers. |
+| `recipes/paper/` | Versioned paper experiment settings. |
+| `recipes/smoke/` | Short validation recipes. |
+| `scripts/train/` | Method-level launchers for beta-OPSD, OPSD, SFT, and GRPO. |
+| `scripts/slurm/` | Generic Slurm templates without local account, partition, or node names. |
+| `scripts/smoke/` | Smoke-test wrappers that use the same recipe runner as full runs. |
+| `scripts/vllm/` | Optional vLLM server helpers. |
 
 ## Core Method Switches
 
@@ -83,14 +84,14 @@ target = (1 - teacher_weight) * reference_student + teacher_weight * privileged_
 
 ## Quick Smoke Tests
 
-Smoke tests are short Slurm jobs intended to catch import, config, trainer, and basic GPU/runtime issues.
+Smoke tests catch import, config, trainer, and basic GPU/runtime issues. They can run directly or through the generic Slurm template.
 
 ```bash
-sbatch scripts/smoke_test.sh                         # OPSD baseline
-sbatch scripts/beta_opsd_smoke_mix_target.sbatch     # beta-OPSD mix target
-sbatch scripts/beta_opsd_smoke_mixed_sampling.sbatch # beta-OPSD mixed sampling
-sbatch scripts/smoke_sft.sbatch                      # SFT baseline
-sbatch scripts/smoke_grpo.sbatch                     # GRPO baseline
+bash scripts/smoke/beta_opsd_mix_target.sh
+bash scripts/smoke/beta_opsd_mixed_sampling.sh
+bash scripts/smoke/opsd.sh
+bash scripts/smoke/sft.sh
+bash scripts/smoke/grpo.sh
 ```
 
 Logs are written to:
@@ -102,28 +103,44 @@ runs/<run_name>/logs/
 
 Both directories are ignored by Git.
 
-## Training Recipes
+## Reproduce Paper Experiments
+
+Paper settings live in YAML files under `recipes/paper/`. The scripts read a recipe and launch the corresponding trainer with `accelerate`.
+
+| Method | Recipe | Command |
+|---|---|---|
+| beta-OPSD mixed target | `recipes/paper/beta_opsd_mix_target_qwen3_4b.yaml` | `CONFIG=recipes/paper/beta_opsd_mix_target_qwen3_4b.yaml bash scripts/train/beta_opsd.sh` |
+| beta-OPSD mixed sampling | `recipes/paper/beta_opsd_mixed_sampling_qwen3_1_7b.yaml` | `CONFIG=recipes/paper/beta_opsd_mixed_sampling_qwen3_1_7b.yaml bash scripts/train/beta_opsd.sh` |
+| fixed-teacher OPSD | `recipes/paper/opsd_fixed_teacher_qwen3_1_7b.yaml` | `CONFIG=recipes/paper/opsd_fixed_teacher_qwen3_1_7b.yaml bash scripts/train/opsd.sh` |
+| fixed-teacher OPSD, main scale | `recipes/paper/opsd_fixed_teacher_qwen3_4b.yaml` | `CONFIG=recipes/paper/opsd_fixed_teacher_qwen3_4b.yaml bash scripts/train/beta_opsd.sh` |
+| SFT baseline | `recipes/paper/sft_qwen3_4b.yaml` | `CONFIG=recipes/paper/sft_qwen3_4b.yaml bash scripts/train/sft.sh` |
+| GRPO baseline | `recipes/paper/grpo_qwen3_4b.yaml` | `CONFIG=recipes/paper/grpo_qwen3_4b.yaml bash scripts/train/grpo.sh` |
+
+Common environment overrides:
+
+```bash
+RUN=my_run MAX_STEPS=10 MODEL_NAME_OR_PATH=Qwen/Qwen3-1.7B \
+  CONFIG=recipes/paper/beta_opsd_mix_target_qwen3_4b.yaml \
+  bash scripts/train/beta_opsd.sh
+```
+
+On Slurm, pass cluster-specific settings with `sbatch` options:
+
+```bash
+sbatch --account=<account> --partition=<partition> --gres=gpu:1 scripts/slurm/submit_beta_opsd.sbatch
+sbatch --export=ALL,CONFIG=recipes/paper/grpo_qwen3_4b.yaml --gres=gpu:8 scripts/slurm/submit_grpo.sbatch
+```
+
+See [`scripts/README.md`](scripts/README.md) for launcher details.
+
+## Method Notes
 
 ### Beta-OPSD Mix Target
 
-The primary beta-OPSD configuration uses a mixed teacher target. Example:
+The primary beta-OPSD configuration uses a mixed teacher target:
 
 ```bash
-RUN=beta_target_qwen34b \
-MODEL_NAME_OR_PATH=Qwen/Qwen3-4B \
-TEACHER_WEIGHT_START=0.5 \
-MAX_STEPS=200 \
-sbatch scripts/beta_opsd_mix_target_qwen34b_h200.sbatch
-```
-
-For a linearly scheduled target teacher weight:
-
-```bash
-RUN=beta_target_qwen34b_05to08 \
-TEACHER_WEIGHT_START=0.5 \
-TEACHER_WEIGHT_FINAL=0.8 \
-ALPHA_SCHEDULE=linear \
-sbatch scripts/beta_opsd_mix_target_qwen34b_h200.sbatch
+CONFIG=recipes/paper/beta_opsd_mix_target_qwen3_4b.yaml bash scripts/train/beta_opsd.sh
 ```
 
 ### Mixed-Sampling Ablation
@@ -131,17 +148,7 @@ sbatch scripts/beta_opsd_mix_target_qwen34b_h200.sbatch
 Mixed sampling changes the proposal distribution used for on-policy generation. It is not the default beta-OPSD target. When `--use_mixed_sampling` is enabled, the training target is forced to fixed teacher.
 
 ```bash
-RUN=beta_mixed_sampling_qwen17b \
-MIXED_ALPHA_START=0.8 \
-MIXED_ALPHA_FINAL=0.2 \
-sbatch scripts/beta_opsd_mixed_sampling.sbatch
-```
-
-Reward-to-go and importance-sampling variants are provided:
-
-```bash
-sbatch scripts/beta_opsd_mixed_sampling_rtg.sbatch
-sbatch scripts/beta_opsd_mixed_sampling_fixed_alpha_rtg.sbatch
+CONFIG=recipes/paper/beta_opsd_mixed_sampling_qwen3_1_7b.yaml bash scripts/train/beta_opsd.sh
 ```
 
 ### Fixed-Teacher OPSD Baselines
@@ -149,18 +156,15 @@ sbatch scripts/beta_opsd_mixed_sampling_fixed_alpha_rtg.sbatch
 The original OPSD-style baseline entry point is kept for comparison:
 
 ```bash
-RUN=opsd_qwen17b sbatch scripts/submit_opsd_1b_localvllm.sbatch
-RUN=opsd_qwen34b sbatch scripts/beta_opsd_fixed_teacher_qwen34b_h200.sbatch
+CONFIG=recipes/paper/opsd_fixed_teacher_qwen3_1_7b.yaml bash scripts/train/opsd.sh
 ```
 
 ### SFT and GRPO Baselines
 
 ```bash
-RUN=sft_qwen34b bash scripts/run_sft.sh
-RUN=grpo_qwen34b bash scripts/run_grpo.sh
+CONFIG=recipes/paper/sft_qwen3_4b.yaml bash scripts/train/sft.sh
+CONFIG=recipes/paper/grpo_qwen3_4b.yaml bash scripts/train/grpo.sh
 ```
-
-Slurm templates for Qwen3-1.7B and Qwen3-8B baseline runs are also included under `scripts/submit_qwen*_baseline.sbatch`.
 
 ## Evaluation
 
