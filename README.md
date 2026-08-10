@@ -4,7 +4,7 @@ Beta-OPSD is the code release for experiments around beta on-policy self-distill
 
 This repository is intentionally clean: it contains source code, launch configs, evaluation inputs, and documentation only. Training outputs, checkpoints, W&B state, Slurm logs, generated samples, caches, and large generated reference files are excluded by `.gitignore`.
 
-Paper: [arXiv:2607.28582](https://arxiv.org/abs/2607.28582). The PDF is included at [`docs/beta-opsd-paper.pdf`](docs/beta-opsd-paper.pdf).
+Paper: [arXiv:2607.28582](https://arxiv.org/abs/2607.28582).
 
 ## Installation
 
